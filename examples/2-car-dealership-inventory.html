@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 2: Business Inventory (Figures 29-36)</title>
+  <style>
+    canvas {
+      border: 1px solid black;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <script>
+
+
+/*
+ * Figures on pg 52
+ * Model on pg 199
+ * 
+ * Business Inventory — for Figures 29 – 36
+ * Stock: inventory of cars on the lot(t) = inventory of cars on the lot(t – dt) + (deliveries – sales) x dt
+ * Initial stock values: inventory of cars on the lot = 200 cars
+ * t = days
+ * dt = 1 day
+ * Run time = 100 days
+ * Inflows: deliveries = 20 ... for time 0 to 5; 
+ *                       orders to factory (t – delivery delay) ... for time 6 to 100
+ * Outflows: sales = minimum of inventory of cars on the lot or customer demand
+ * Converters: customer demand = 20 cars per day ... for time 0 to 25;
+ *                               22 cars per day ... for time 26 to 100
+ * perceived sales = sales averaged over perception delay (i.e. sales smoothed over perception delay)
+ * desired inventory = perceived sales x 10
+ * discrepancy = desired inventory – inventory of cars on the lot
+ * orders to factory = maximum of (perceived sales + discrepancy) or 0 ... for Figure 32;
+ *      maximum of (perceived sales + discrepancy * order damping) or 0 ... for Figures 34-36
+ * 
+ * Delays, Figure 30:
+ * perception delay = 0
+ * order damping = 1 (book called this "response delay")
+ * delivery delay = 0 
+ * 
+ * Delays, Figure 32:
+ * perception delay = 5 days
+ * order damping = 1/3
+ * delivery delay = 5 days
+ * 
+ * Delays, Figure 34:
+ * perception delay = 2 days
+ * order damping = 1/3
+ * delivery delay = 5 days
+ * 
+ * Delays, Figure 35:
+ * perception delay = 5 days
+ * order damping = 1/2
+ * delivery delay = 5 days
+ * 
+ * Delays, Figure 36:
+ * perception delay = 5 days
+ * order damping = 1/6
+ * delivery delay = 5 days
+*/
+
+    function repeat(x, numberOfTimes) {
+      const result = [];
+      for (let i = 0; i < numberOfTimes; ++i) {
+        result.push(x);
+      }
+      return result;
+    }
+
+    const durationDays = 100;
+
+    // Stock
+    const initialCarInventory = 200;
+    // Inflow
+    function getDeliveriesForDay(
+      deliveryDelay, salesRecords, inventoryRecords, orderDamping, perceptionDelay
+    ) {
+      const day = salesRecords.length;
+      if (day <= deliveryDelay) {
+        return 20;
+      } else {
+        const previousDay = day - 1;
+        const latestOrderDay = previousDay - deliveryDelay;
+        return getFactoryOrders(
+          salesRecords.slice(
+            Math.max(0, latestOrderDay - perceptionDelay),
+            latestOrderDay + 1
+          ),
+          inventoryRecords[latestOrderDay],
+          orderDamping
+        );
+      }
+    }
+
+    // Outflow
+    function getSalesForDay(inventory, day) {
+      return Math.min(inventory, getCustomerDemandForDay(day));
+    }
+
+    // Converters
+
+    // Returns number of cars
+    function getCustomerDemandForDay(day) {
+      if (day >= 0 && day <= 25) {
+        return 20;
+      } else if (day >= 26 && day <= 100) {
+        return 22;
+      } else {
+        throw new Error('getCustomerDemandForDay: day out of range:', day);
+      }
+    }
+
+    function getPerceivedSales(salesRecords) {
+      const sum = salesRecords.reduce((x, y) => x + y, 0);
+      return sum / salesRecords.length;
+    }
+
+    function getDesiredInventory(salesRecords) {
+      return 10 * getPerceivedSales(salesRecords);
+    }
+
+    function getDiscrepency(salesRecords, inventory) {
+      return getDesiredInventory(salesRecords) - inventory;
+    }
+
+    function getFactoryOrders(salesRecords, inventory, orderDamping) {
+      return Math.max(
+        0,
+        getPerceivedSales(salesRecords)
+          + getDiscrepency(salesRecords, inventory) * orderDamping
+      );
+    }
+
+    function calcInventory(config) {
+      const {
+        days,
+        initialCarInventory,
+        deliveryDelay,
+        orderDamping,
+        perceptionDelay
+      } = config;
+
+      let state = {
+        carInventory: initialCarInventory,
+        salesRecords: [],
+        inventoryRecords: [],
+      };
+
+      for (let time = 0; time <= days; time++) {
+        const sales = getSalesForDay(state.carInventory, time);
+        const newInventory = (
+          state.carInventory
+          + getDeliveriesForDay(
+            deliveryDelay,
+            state.salesRecords,
+            state.inventoryRecords,
+            orderDamping,
+            perceptionDelay,
+          )
+          - sales
+        );
+
+        const newState = {
+          carInventory: newInventory,
+          salesRecords: state.salesRecords.concat([sales]),
+          inventoryRecords: state.inventoryRecords.concat([newInventory]),
+        };
+        state = newState;
+      }
+
+      return state.inventoryRecords.map((inventory, time) => [time, inventory]);
+    }
+
+    function pp(x) {
+      return JSON.stringify(x, undefined, 2);
+    }
+
+    function makeElement(tagName, children) {
+      const el = document.createElement(tagName);
+      (children || []).forEach(child => {
+        el.appendChild(child);
+      });
+      return el;
+    }
+
+    function div(children) { return makeElement('div', children); }
+    function h3(children) { return makeElement('h3', children); }
+    function hr() { return makeElement('hr', []); }
+    function br() { return makeElement('br', []); }
+    function text(data) { return document.createTextNode(data); }
+
+    function getInflow(time) { // gallons per minute
+      return (
+        0 <= time && time <= 5 ? 0
+        : 5
+      );
+    }
+
+    function getOutflow(time) { // gallons per minute
+      return 5;
+    }
+
+    function makeChart(args) {
+      const {
+        coordinates,
+        xRange,
+        yRange,
+        caption,
+      } = args;
+      const [minX, maxX] = xRange;
+      // const minX = Math.min.apply(Math, coordinates.map(coord => coord[0]));
+      // const maxX = Math.max.apply(Math, coordinates.map(coord => coord[0]));
+      const rebasedMaxX = maxX - minX;
+
+      const [minY, maxY] = yRange;
+      // const minY = Math.min.apply(Math, coordinates.map(coord => coord[1]));
+      // const maxY = Math.max.apply(Math, coordinates.map(coord => coord[1]));
+      const rebasedMaxY = maxY - minY;
+
+      const canvasMaxX = 300;
+      const canvasMaxY = 150;
+
+      const canvas = makeElement('canvas', []);
+      const ctx = canvas.getContext('2d');
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(10, canvasMaxY - 10);
+      ctx.lineTo(10, 10);
+      ctx.strokeStyle = 'black';
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(10, canvasMaxY - 10);
+      ctx.lineTo(canvasMaxX - 10, canvasMaxY - 10);
+      ctx.strokeStyle = 'black';
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      coordinates.forEach(([x, y], index) => {
+        const rebasedX = x - minX;
+        const rebasedY = y - minY;
+        const canvasX = (canvasMaxX - 20) / rebasedMaxX * rebasedX + 10;
+        const canvasY = canvasMaxY - 10 - ((canvasMaxY - 20) / rebasedMaxY * rebasedY);
+
+        console.log('x: ' + canvasX + ', y: ' + canvasY);
+
+        if (index === 0) {
+          ctx.moveTo(canvasX, canvasY);
+        } else {
+          ctx.lineTo(canvasX, canvasY);
+        }
+      });
+
+      ctx.strokeStyle = 'red';
+      ctx.stroke();
+      ctx.restore();
+
+      return div([
+        canvas,
+        text(caption),
+        br(),
+        br(),
+      ]);
+    }
+
+    function range(begin, end, inc) {
+      const result = [];
+      for (let i = begin; i < end; i+= inc) {
+        result.push(i);
+      }
+      return result;
+    }
+
+    const coordinates = calcInventory({
+      days: durationDays,
+      initialCarInventory: initialCarInventory,
+      deliveryDelay: 0,
+      orderDamping: 1,
+      perceptionDelay: 1,
+    });
+
+    const coordinates32 = calcInventory({
+      days: durationDays,
+      initialCarInventory: initialCarInventory,
+      deliveryDelay: 5,
+      orderDamping: 1/3,
+      perceptionDelay: 5,
+    });
+    // console.log(pp(coordinates));
+    document.body.appendChild(h3([text('No delays')]));
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: coordinates,
+        xRange: [0, 100],
+        yRange: [0, 500],
+        caption: 'Figure 30',
+      })
+    );
+
+    document.body.appendChild(h3([text('Some delays')]));
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: coordinates32,
+        xRange: [0, 100],
+        yRange: [0, 500],
+        caption: 'Figure 32',
+      })
+    );
+
+    console.table(coordinates32);
+
+    const coordinates34 = calcInventory({
+      days: durationDays,
+      initialCarInventory: initialCarInventory,
+      deliveryDelay: 5,
+      orderDamping: 1/3,
+      perceptionDelay: 2,
+    });
+
+    document.body.appendChild(h3([text('shorter perception')]));
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: coordinates34,
+        xRange: [0, 100],
+        yRange: [0, 500],
+        caption: 'Figure 34',
+      })
+    );
+
+    const coordinates35 = calcInventory({
+      days: durationDays,
+      initialCarInventory: initialCarInventory,
+      deliveryDelay: 5,
+      orderDamping: 1/2,
+      perceptionDelay: 5,
+    });
+
+    document.body.appendChild(h3([text('bigger orders')]));
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: coordinates35,
+        xRange: [0, 100],
+        yRange: [0, 500],
+        caption: 'Figure 35',
+      })
+    );
+
+    const coordinates36 = calcInventory({
+      days: durationDays,
+      initialCarInventory: initialCarInventory,
+      deliveryDelay: 5,
+      orderDamping: 1/6,
+      perceptionDelay: 5,
+    });
+
+    document.body.appendChild(h3([text('Smaller orders')]));
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: coordinates36,
+        xRange: [0, 100],
+        yRange: [0, 500],
+        caption: 'Figure 35',
+      })
+    );
+    // document.body.appendChild(h3([text('A cold room warms quickly to the thermostat setting')]));
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: range(0, 9, 1).map(time => [time, thermostatSetting]),
+    //     xRange: [0, 8],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 16a. Thermostat setting.',
+    //   })
+    // );
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: calcTemperature({
+    //       numberOfHours: 8,
+    //       initialIndoorTemp: initialTempColdRoom,
+    //       outdoorTempByHour: outdoorTempByHour.hours8,
+    //       getInflow: inflow.furnace,
+    //       getOutflow: outflow.none,
+    //     }),
+    //     xRange: [0, 8],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 16b. Indoor temperature.',
+    //   })
+    // );
+
+    // document.body.appendChild(hr());
+    // document.body.appendChild(h3([text('A warm room cools very slowly to the outside temperature of 10 degrees C.')]));
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: outdoorTempByHour.hours8.map((temp, time) => [time, temp]),
+    //     xRange: [0, 8],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 17a. Outdoor temperature.',
+    //   })
+    // );
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: calcTemperature({
+    //       numberOfHours: 8,
+    //       initialIndoorTemp: initialTempWarmRoom,
+    //       outdoorTempByHour: outdoorTempByHour.hours8,
+    //       getInflow: inflow.noFurnace,
+    //       getOutflow: outflow.normalHouse,
+    //     }),
+    //     xRange: [0, 8],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 17b. Indoor temperature.',
+    //   })
+    // );
+
+    // document.body.appendChild(hr());
+    // document.body.appendChild(h3([text('The furnace warms a cool room, even as heat continues to leak from the room.')]));
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: range(0, 9, 1).map(time => [time, thermostatSetting]),
+    //     xRange: [0, 8],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 18a. Thermostat setting.',
+    //   })
+    // );
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: calcTemperature({
+    //       numberOfHours: 8,
+    //       initialIndoorTemp: initialTempColdRoom,
+    //       outdoorTempByHour: outdoorTempByHour.hours8,
+    //       getInflow: inflow.furnace,
+    //       getOutflow: outflow.normalHouse,
+    //     }),
+    //     xRange: [0, 8],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 18b. Indoor temperature.',
+    //   })
+    // );
+
+    // document.body.appendChild(hr());
+    // document.body.appendChild(h3([text('The furnace warms a cool room, even as heat leaks from the room and outside temperatures drop below freezing.')]));
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: range(0, 25, 1).map(time => [time, thermostatSetting]),
+    //     xRange: [0, 24],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 19a. Thermostat setting.',
+    //   })
+    // );
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: outdoorTempByHour.hours24.map((temp, time) => [time, temp]),
+    //     xRange: [0, 24],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 19b. Outdoor temperature.',
+    //   })
+    // );
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: calcTemperature({
+    //       numberOfHours: 24,
+    //       initialIndoorTemp: initialTempColdRoom,
+    //       outdoorTempByHour: outdoorTempByHour.hours24,
+    //       getInflow: inflow.furnace,
+    //       getOutflow: outflow.normalHouse,
+
+    //     }),
+    //     xRange: [0, 24],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 19c. Indoor temperature.',
+    //   })
+    // );
+
+    // document.body.appendChild(hr());
+    // document.body.appendChild(h3([text('On a cold day, the furnace can\'t keep the room warm in a leaky house!')]));
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: range(0, 25, 1).map(time => [time, thermostatSetting]),
+    //     xRange: [0, 24],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 20a. Thermostat setting.',
+    //   })
+    // );
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: outdoorTempByHour.hours24.map((temp, time) => [time, temp]),
+    //     xRange: [0, 24],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 20b. Outdoor temperature.',
+    //   })
+    // );
+
+    // document.body.appendChild(
+    //   makeChart({
+    //     coordinates: calcTemperature({
+    //       numberOfHours: 24,
+    //       initialIndoorTemp: initialTempColdRoom,
+    //       outdoorTempByHour: outdoorTempByHour.hours24,
+    //       getInflow: inflow.furnace,
+    //       getOutflow: outflow.veryLeakyHouse,
+
+    //     }),
+    //     xRange: [0, 24],
+    //     yRange: [-5, 20],
+    //     caption: 'Figure 20c. Indoor temperature.',
+    //   })
+    // );
+  </script>
+</body>
+</html>

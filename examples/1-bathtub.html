@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 1: Bathtub (Figures 6, 7)</title>
+  <style>
+    canvas {
+      border: 1px solid black;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    /*
+     * Figures on pg 20
+     * Model on pg 195
+     * Stock: water in tub(t) = water in tub(t - dt) + (inflow - outflow) x dt
+     * Initial stock value: water in tub = 50 gal
+     * t = minutes
+     * dt = 1 minute
+     * Run time = 10 minutes
+     * Inflow: inflow = 0 gal/min ... for time 0 t 5; 5 gal/min...for time 6 to 10
+     * Outflow: outflow = 5 gal/min
+    */
+
+    function pp(x) {
+      return JSON.stringify(x, undefined, 2);
+    }
+
+    function makeElement(tagName, children) {
+      const el = document.createElement(tagName);
+      (children || []).forEach(child => {
+        el.appendChild(child);
+      });
+      return el;
+    }
+
+    function div(children) { return makeElement('div', children); }
+    function hr() { return makeElement('hr', []); }
+    function br() { return makeElement('br', []); }
+    function text(data) { return document.createTextNode(data); }
+
+    function getInflow(time) { // gallons per minute
+      return (
+        0 <= time && time <= 5 ? 0
+        : 5
+      );
+    }
+
+    function getOutflow(time) { // gallons per minute
+      return 5;
+    }
+
+    function makeChart(args) {
+      const {
+        coordinates,
+        xRange,
+        yRange,
+        caption,
+      } = args;
+      const [minX, maxX] = xRange;
+      // const minX = Math.min.apply(Math, coordinates.map(coord => coord[0]));
+      // const maxX = Math.max.apply(Math, coordinates.map(coord => coord[0]));
+      const rebasedMaxX = maxX - minX;
+
+      const [minY, maxY] = yRange;
+      // const minY = Math.min.apply(Math, coordinates.map(coord => coord[1]));
+      // const maxY = Math.max.apply(Math, coordinates.map(coord => coord[1]));
+      const rebasedMaxY = maxY - minY;
+
+      const canvasMaxX = 300;
+      const canvasMaxY = 150;
+
+      const canvas = makeElement('canvas', []);
+      const ctx = canvas.getContext('2d');
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(10, canvasMaxY - 10);
+      ctx.lineTo(10, 10);
+      ctx.strokeStyle = 'black';
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(10, canvasMaxY - 10);
+      ctx.lineTo(canvasMaxX - 10, canvasMaxY - 10);
+      ctx.strokeStyle = 'black';
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      coordinates.forEach(([x, y], index) => {
+        const rebasedX = x - minX;
+        const rebasedY = y - minY;
+        const canvasX = (canvasMaxX - 20) / rebasedMaxX * rebasedX + 10;
+        const canvasY = canvasMaxY - 10 - ((canvasMaxY - 20) / rebasedMaxY * rebasedY);
+
+        console.log('x: ' + canvasX + ', y: ' + canvasY);
+
+        if (index === 0) {
+          ctx.moveTo(canvasX, canvasY);
+        } else {
+          ctx.lineTo(canvasX, canvasY);
+        }
+      });
+
+      ctx.strokeStyle = 'red';
+      ctx.stroke();
+      ctx.restore();
+
+      return div([
+        canvas,
+        text(caption),
+        br(),
+        br(),
+      ]);
+    }
+
+    function calcBathtub(config) {
+      const {
+        initialGallons,
+        getInflow,
+        getOutflow,
+      } = config;
+
+      const coordinates = [];
+
+      let waterInTub = 50; // gallons
+      for (let time = 0; time <= 10; ++time) {
+        coordinates.push([time, waterInTub]);
+        console.log(time + ': ' + waterInTub + ' gallons in tub');
+        const inflow = getInflow(time);
+        const outflow = getOutflow(time);
+        waterInTub = waterInTub + inflow - outflow;
+      }
+
+      return coordinates;
+    }
+
+    function makeBathtubChart(config) {
+      const {
+        initialGallons,
+        getInflow,
+        getOutflow,
+        caption,
+      } = config;
+
+      const canvas = makeElement('canvas', []);
+      const ctx = canvas.getContext('2d');
+
+      const xMax = 300;
+      const yMax = 150;
+
+      const timeMax = 10;
+      const gallonsMax = 50;
+
+      function toX(time) {
+        const xMax2 = xMax - 20;
+        return xMax2 / timeMax * time + 10;
+      }
+
+      function toY(gallons) {
+        const yMax2 = yMax - 20;
+        return yMax - 10 - (yMax2 / gallonsMax * gallons);
+      }
+
+      // ctx.moveTo(0, 0);
+      // ctx.lineTo(xMax, yMax);
+      // ctx.stroke();
+      // return;
+
+      let waterInTub = initialGallons; // gallons
+      for (let time = 0; time <= 10; ++time) {
+        if (time === 0) {
+          ctx.moveTo(toX(time), toY(waterInTub));
+        } else {
+          ctx.lineTo(toX(time), toY(waterInTub));
+        }
+        console.log(time + ': ' + waterInTub + ' gallons in tub');
+        const inflow = getInflow(time);
+        const outflow = getOutflow(time);
+        waterInTub = waterInTub + inflow - outflow;
+      }
+      ctx.stroke();
+
+      return div([
+        canvas,
+        text(caption),
+      ]);
+    }
+
+    function range(begin, end, inc) {
+      const result = [];
+      for (let i = begin; i < end; i+= inc) {
+        result.push(i);
+      }
+      return result;
+    }
+
+    // document.body.appendChild(
+    //   makeBathtubChart({
+    //     initialGallons: 50,
+    //     getInflow: () => 0,
+    //     getOutflow,
+    //     caption: 'Figure 6. Water level in a tub when the plug is pulled'
+    //   })
+    // );
+
+    // document.body.appendChild(
+    //   makeBathtubChart({
+    //     initialGallons: 50,
+    //     getInflow,
+    //     getOutflow,
+    //     caption: 'Figure 7. Constant outflow, inflow turned on after 5 minutes, and the resulting changes in the stock of water in the tub',
+    //   })
+    // );
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: calcBathtub({
+          initialGallons: 50,
+          getInflow: () => 0,
+          getOutflow,
+        }),
+        xRange: [0, 10],
+        yRange: [0, 50],
+        caption: 'Figure 6. Water level in a tub when the plug is pulled',
+      })
+    );
+
+    document.body.appendChild(hr());
+
+    const times = range(0, 11, 1);
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: times.map(time => [time, getInflow(time)]),
+        xRange: [0, 10],
+        yRange: [0, 50],
+        caption: 'Figure 7a. Inflow (turned on after 5 minutes)'
+      })
+    );
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: times.map(time => [time, getOutflow(time)]),
+        xRange: [0, 10],
+        yRange: [0, 50],
+        caption: 'Figure 7b. Outflow (constant)'
+      })
+    );
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: calcBathtub({
+          initialGallons: 50,
+          getInflow,
+          getOutflow,
+        }),
+        xRange: [0, 10],
+        yRange: [0, 50],
+        caption: 'Figure 7c. The resulting changes in the stock of water in the tub'
+      })
+    );
+  </script>
+</body>
+</html>

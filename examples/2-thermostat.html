@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 2: Thermostat (Figures 16, 17, 18, 19, 20)</title>
+  <style>
+    canvas {
+      border: 1px solid black;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    /*
+     * Figures on pg 37
+     * Model on pg 197
+     * Stock: room temperature(t) = room temperature(t - dt) + (heat from furnace - heat to outside) x dt
+     * Initial stock value: room temperature = 10 degrees C for cold-room warming; 18 degrees C for warm-room cooling
+     * t = hours
+     * dt = 1 hour
+     * Run time = 8 hours and 24 hours
+     * Inflow: heat from furnace = minimum of discrepancy between desired and actual room temperature or 5
+     * Outflow: heat to outside =
+     *   discrepancy between inside and outside temperature x 10% ... for "normal" house;
+     *   discrepancy between inside and outside temperature x 30% ... for very leaky house
+     * Converters: thermostat setting = 18 degrees C
+     *   discrepancy between desired and actual room temperature = maximum of (thermostat setting - room temperature) and 0
+     *   discrepancy between inside and outside temperature = room temperature - 10 degrees C ... for constant outside temperature (Figures 16-18);
+     *     room temperature - 24-hour outside temp...for full day-and-night cycle (Figures 19 and 20)
+    */
+
+    // interface IState {
+    //   thermostatSetting: number; // desired temp
+    //   indoorTemp: number; // actual temp
+    //   outdoorTemp: number;
+    // }
+
+    function repeat(x, numberOfTimes) {
+      const result = [];
+      for (let i = 0; i < numberOfTimes; ++i) {
+        result.push(x);
+      }
+      return result;
+    }
+
+    const thermostatSetting = 18;
+
+    const outdoorTempByHour = {
+      hours8: repeat(10, 9),
+      hours24: [ // Guesses based on graph at the bottom of pg 197. Meh.
+        10, // 0 hours
+        10, // 1 hours
+        10, // 2 hours
+        9, // 3 hours
+        8, // 4 hours
+        6, // 5 hours
+        5, // 6 hours
+        3, // 7 hours
+        0, // 8 hours
+        -3, // 9 hours
+        -4, // 10 hours
+        -5, // 11 hours
+        -5, // 12 hours
+        -5, // 13 hours
+        -3.5, // 14 hours
+        -2, // 15 hours
+        -1, // 16 hours
+        0, // 17 hours
+        3, // 18 hours
+        5, // 19 hours
+        7, // 20 hours
+        8, // 21 hours
+        9, // 22 hours
+        9.5, // 23 hours
+        10, // 24 hours
+      ],
+    }
+
+    const initialTempColdRoom = 10;
+    const initialTempWarmRoom = 18;
+
+    const inflow = {
+      noFurnace: _ => 0,
+      furnace: state => Math.min(5, Math.abs(state.indoorTemp - state.thermostatSetting)),
+    };
+
+    const outflow = {
+      none: state => 0,
+      normalHouse: state => Math.abs(state.indoorTemp - state.outdoorTemp) * 0.1,
+      veryLeakyHouse: state => Math.abs(state.indoorTemp - state.outdoorTemp) * 0.3,
+    };
+
+    function pp(x) {
+      return JSON.stringify(x, undefined, 2);
+    }
+
+    function makeElement(tagName, children) {
+      const el = document.createElement(tagName);
+      (children || []).forEach(child => {
+        el.appendChild(child);
+      });
+      return el;
+    }
+
+    function div(children) { return makeElement('div', children); }
+    function h3(children) { return makeElement('h3', children); }
+    function hr() { return makeElement('hr', []); }
+    function br() { return makeElement('br', []); }
+    function text(data) { return document.createTextNode(data); }
+
+    function getInflow(time) { // gallons per minute
+      return (
+        0 <= time && time <= 5 ? 0
+        : 5
+      );
+    }
+
+    function getOutflow(time) { // gallons per minute
+      return 5;
+    }
+
+    function makeChart(args) {
+      const {
+        coordinates,
+        xRange,
+        yRange,
+        caption,
+      } = args;
+      const [minX, maxX] = xRange;
+      // const minX = Math.min.apply(Math, coordinates.map(coord => coord[0]));
+      // const maxX = Math.max.apply(Math, coordinates.map(coord => coord[0]));
+      const rebasedMaxX = maxX - minX;
+
+      const [minY, maxY] = yRange;
+      // const minY = Math.min.apply(Math, coordinates.map(coord => coord[1]));
+      // const maxY = Math.max.apply(Math, coordinates.map(coord => coord[1]));
+      const rebasedMaxY = maxY - minY;
+
+      const canvasMaxX = 300;
+      const canvasMaxY = 150;
+
+      const canvas = makeElement('canvas', []);
+      const ctx = canvas.getContext('2d');
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(10, canvasMaxY - 10);
+      ctx.lineTo(10, 10);
+      ctx.strokeStyle = 'black';
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(10, canvasMaxY - 10);
+      ctx.lineTo(canvasMaxX - 10, canvasMaxY - 10);
+      ctx.strokeStyle = 'black';
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      coordinates.forEach(([x, y], index) => {
+        const rebasedX = x - minX;
+        const rebasedY = y - minY;
+        const canvasX = (canvasMaxX - 20) / rebasedMaxX * rebasedX + 10;
+        const canvasY = canvasMaxY - 10 - ((canvasMaxY - 20) / rebasedMaxY * rebasedY);
+
+        console.log('x: ' + canvasX + ', y: ' + canvasY);
+
+        if (index === 0) {
+          ctx.moveTo(canvasX, canvasY);
+        } else {
+          ctx.lineTo(canvasX, canvasY);
+        }
+      });
+
+      ctx.strokeStyle = 'red';
+      ctx.stroke();
+      ctx.restore();
+
+      return div([
+        canvas,
+        text(caption),
+        br(),
+        br(),
+      ]);
+    }
+
+    function calcTemperature(config) {
+      const {
+        numberOfHours,
+        initialIndoorTemp,
+        outdoorTempByHour,
+        getInflow,
+        getOutflow,
+      } = config;
+
+      const coordinates = [];
+
+      let state = {
+        thermostatSetting: thermostatSetting,
+        indoorTemp: initialIndoorTemp,
+        outdoorTemp: outdoorTempByHour[0],
+      }
+      let time = 0;
+      while (time <= numberOfHours) {
+        coordinates.push([time, state.indoorTemp]);
+        console.log(time + ': ' + state.indoorTemp + ' indoor temperature');
+        const inflow = getInflow(state);
+        const outflow = getOutflow(state);
+        
+        ++time;
+
+        state.indoorTemp = state.indoorTemp + inflow - outflow;
+        state.outdoorTemp = outdoorTempByHour[time];
+      }
+
+      return coordinates;
+    }
+
+    function range(begin, end, inc) {
+      const result = [];
+      for (let i = begin; i < end; i+= inc) {
+        result.push(i);
+      }
+      return result;
+    }
+
+    // document.body.appendChild(
+    //   makeBathtubChart({
+    //     initialGallons: 50,
+    //     getInflow: () => 0,
+    //     getOutflow,
+    //     caption: 'Figure 6. Water level in a tub when the plug is pulled'
+    //   })
+    // );
+
+    // document.body.appendChild(
+    //   makeBathtubChart({
+    //     initialGallons: 50,
+    //     getInflow,
+    //     getOutflow,
+    //     caption: 'Figure 7. Constant outflow, inflow turned on after 5 minutes, and the resulting changes in the stock of water in the tub',
+    //   })
+    // );
+
+    document.body.appendChild(h3([text('A cold room warms quickly to the thermostat setting')]));
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: range(0, 9, 1).map(time => [time, thermostatSetting]),
+        xRange: [0, 8],
+        yRange: [-5, 20],
+        caption: 'Figure 16a. Thermostat setting.',
+      })
+    );
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: calcTemperature({
+          numberOfHours: 8,
+          initialIndoorTemp: initialTempColdRoom,
+          outdoorTempByHour: outdoorTempByHour.hours8,
+          getInflow: inflow.furnace,
+          getOutflow: outflow.none,
+        }),
+        xRange: [0, 8],
+        yRange: [-5, 20],
+        caption: 'Figure 16b. Indoor temperature.',
+      })
+    );
+
+    document.body.appendChild(hr());
+    document.body.appendChild(h3([text('A warm room cools very slowly to the outside temperature of 10 degrees C.')]));
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: outdoorTempByHour.hours8.map((temp, time) => [time, temp]),
+        xRange: [0, 8],
+        yRange: [-5, 20],
+        caption: 'Figure 17a. Outdoor temperature.',
+      })
+    );
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: calcTemperature({
+          numberOfHours: 8,
+          initialIndoorTemp: initialTempWarmRoom,
+          outdoorTempByHour: outdoorTempByHour.hours8,
+          getInflow: inflow.noFurnace,
+          getOutflow: outflow.normalHouse,
+        }),
+        xRange: [0, 8],
+        yRange: [-5, 20],
+        caption: 'Figure 17b. Indoor temperature.',
+      })
+    );
+
+    document.body.appendChild(hr());
+    document.body.appendChild(h3([text('The furnace warms a cool room, even as heat continues to leak from the room.')]));
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: range(0, 9, 1).map(time => [time, thermostatSetting]),
+        xRange: [0, 8],
+        yRange: [-5, 20],
+        caption: 'Figure 18a. Thermostat setting.',
+      })
+    );
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: calcTemperature({
+          numberOfHours: 8,
+          initialIndoorTemp: initialTempColdRoom,
+          outdoorTempByHour: outdoorTempByHour.hours8,
+          getInflow: inflow.furnace,
+          getOutflow: outflow.normalHouse,
+        }),
+        xRange: [0, 8],
+        yRange: [-5, 20],
+        caption: 'Figure 18b. Indoor temperature.',
+      })
+    );
+
+    document.body.appendChild(hr());
+    document.body.appendChild(h3([text('The furnace warms a cool room, even as heat leaks from the room and outside temperatures drop below freezing.')]));
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: range(0, 25, 1).map(time => [time, thermostatSetting]),
+        xRange: [0, 24],
+        yRange: [-5, 20],
+        caption: 'Figure 19a. Thermostat setting.',
+      })
+    );
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: outdoorTempByHour.hours24.map((temp, time) => [time, temp]),
+        xRange: [0, 24],
+        yRange: [-5, 20],
+        caption: 'Figure 19b. Outdoor temperature.',
+      })
+    );
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: calcTemperature({
+          numberOfHours: 24,
+          initialIndoorTemp: initialTempColdRoom,
+          outdoorTempByHour: outdoorTempByHour.hours24,
+          getInflow: inflow.furnace,
+          getOutflow: outflow.normalHouse,
+
+        }),
+        xRange: [0, 24],
+        yRange: [-5, 20],
+        caption: 'Figure 19c. Indoor temperature.',
+      })
+    );
+
+    document.body.appendChild(hr());
+    document.body.appendChild(h3([text('On a cold day, the furnace can\'t keep the room warm in a leaky house!')]));
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: range(0, 25, 1).map(time => [time, thermostatSetting]),
+        xRange: [0, 24],
+        yRange: [-5, 20],
+        caption: 'Figure 20a. Thermostat setting.',
+      })
+    );
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: outdoorTempByHour.hours24.map((temp, time) => [time, temp]),
+        xRange: [0, 24],
+        yRange: [-5, 20],
+        caption: 'Figure 20b. Outdoor temperature.',
+      })
+    );
+
+    document.body.appendChild(
+      makeChart({
+        coordinates: calcTemperature({
+          numberOfHours: 24,
+          initialIndoorTemp: initialTempColdRoom,
+          outdoorTempByHour: outdoorTempByHour.hours24,
+          getInflow: inflow.furnace,
+          getOutflow: outflow.veryLeakyHouse,
+
+        }),
+        xRange: [0, 24],
+        yRange: [-5, 20],
+        caption: 'Figure 20c. Indoor temperature.',
+      })
+    );
+  </script>
+</body>
+</html>

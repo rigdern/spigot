@@ -48,6 +48,40 @@
 
 // Thermostat example (figure 15)
 
+const outdoorTempByHour = {
+  hours8: 10,
+  hours24: (time) => {
+    const tempByHour = [ // Guesses based on graph at the bottom of pg 197. Meh.
+      10, // 0 hours
+      10, // 1 hours
+      10, // 2 hours
+      9, // 3 hours
+      8, // 4 hours
+      6, // 5 hours
+      5, // 6 hours
+      3, // 7 hours
+      0, // 8 hours
+      -3, // 9 hours
+      -4, // 10 hours
+      -5, // 11 hours
+      -5, // 12 hours
+      -5, // 13 hours
+      -3.5, // 14 hours
+      -2, // 15 hours
+      -1, // 16 hours
+      0, // 17 hours
+      3, // 18 hours
+      5, // 19 hours
+      7, // 20 hours
+      8, // 21 hours
+      9, // 22 hours
+      9.5, // 23 hours
+      10, // 24 hours
+    ];
+    return tempByHour[time];
+  },
+}
+
 const spec = [
   { id: 'degrees Celsius', type: 'unit', name: 'degrees Celsius' },
 
@@ -139,7 +173,7 @@ const spec = [
     id: 'outside temperature',
     type: 'parameter',
     name: 'outside temperature',
-    value: 10,
+    value: outdoorTempByHour.hours24,
     unit: 'degrees Celsius'
   }, // TODO: Value needs to vary over time
 
@@ -165,16 +199,15 @@ const spec = [
 */
 
 function runStep(spec, state) {
-  const newState = {}
-
   // Initialize state if necessary
   if (state === undefined) {
-    state = {}
+    state = {t: 0}
     for (const stock of spec.filter(x => x.type === 'stock')) {
       state[stock.id] = stock.initialValue
     }
   }
-  Object.assign(newState, state)
+  const newState = Object.assign({}, state);
+  newState.t += 1
 
   // Run all flows and update state
   for (const flow of spec.filter(x => x.type === 'flow')) {
@@ -200,7 +233,12 @@ function resolve(spec, state, id) {
   const object = lookup(spec, id)
   switch (object.type) {
     case 'parameter':
-      return object.value
+      if (typeof(object.value) == 'function') {
+          return object.value(state.t)
+      } else {
+        return object.value
+      }
+        
     case 'converter': 
       return resolveConverter(spec, state, object)
     case 'stock':
@@ -228,6 +266,6 @@ function lookup(spec, id) {
 }
 
 let state = runStep(spec);
-console.table(range(0, 99).
+console.table(range(0, 24).
   reduce((statelog, _) => (statelog.push(runStep(spec, statelog[statelog.length - 1])), statelog), [])
 )

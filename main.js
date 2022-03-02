@@ -1,3 +1,51 @@
+// Types
+//
+// interface IUnit {
+//   type: 'unit';
+//   id: string;
+//   name: string;
+// }
+//
+// interface IParameter {
+//   type: 'parameter';
+//   id: string;
+//   name: string;
+//   value: any | (time: number) => any;
+//   unit: string; // ID of an IUnit
+// }
+//
+// interface IBoundary {
+//   type: 'boundary';
+//   id: string;
+//   unit: string; // ID of an IUnit
+// }
+//
+// interface IStock {
+//   type: 'stock';
+//   id: string;
+//   name: string;
+//   initialValue: number;
+//   unit: string; // ID of an IUnit
+// }
+//
+// interface IFlow {
+//   type: 'flow';
+//   id: string;
+//   name: string;
+//   from: string; // ID of an IStock
+//   to: string; // ID of an IStock
+//   inConverters: string[]; // IDs of IConverters
+//   logic: (...any[]) => number; // Maps output of inConverters to flow rate
+// }
+//
+// interface IConverter {
+//   type: 'converter';
+//   id: string;
+//   name: string;
+//   inputs: string[]; // IDs of IParameters, IConverters, IFlows, and IStocks.
+//   logic: (...number[]) => any; // Maps inputs to anything
+// }
+
 // Thermostat example (figure 15)
 
 const spec = [

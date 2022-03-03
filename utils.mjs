@@ -7,3 +7,9 @@ export function range(begin, end, inc) {
   }
   return result;
 }
+
+export function assert(pred, msg) {
+  if (!pred) {
+    throw new Error(msg || 'Assertion failed');
+  }
+}

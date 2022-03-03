@@ -174,4 +174,68 @@ function lookup(spec, id) {
   }
   throw new Error(`lookup: Failed to find object with id ${id} in spec given`)
 }
+
+function makeGraph() {
+  const graph = [new Map(), new Map()] // [node -> outgoing edges, node -> incoming edges]
+  return graph
+}
+
+function addNode(graph, node) {
+  const [outgoing, incoming] = graph
+  assert(!(outgoing.has(node) || incoming.has(node)))
+  outgoing.set(node, new Set())
+  incoming.set(node, new Set())
+  return graph
+}
+
+// Adds an edge from node1 to node2 in graph
+function addEdge(graph, node1, node2) {
+  const [outgoing, incoming] = graph
+  if (!outgoing.has(node1)) {
+    addNode(graph, node1)
+  }
+  if (!incoming.has(node2)) {
+    addNode(graph, node1) // TODO: should this be `node2`?
+  }
+  incoming.get(node2).add(node1)
+  outgoing.get(node1).add(node2)
+  return graph
+}
+
+function getOutEdges(graph, node) {
+  const [outgoing, _] = graph
+  return outgoing.get(node)
+}
+
+function getInEdges(graph, node) {
+  const [_, incoming] = graph
+  return incoming.get(node)
+}
+
+function topologicalSort(spec) {
+  // Kahn's algorithm
+  const set = new Set(spec.filter(obj => obj.type === "stock" || obj.type === "parameter"))
+  const sorted = []
+
+  // Preprocess spec so we can quickly look up outputs given an id
+  const graph = new Map() // {"ok": ["asda", "asd"]}
+  for (const obj of spec) {
+    graph.set(obj.id, new Set())
+  }
+  for (const obj of spec) {
+    for (const input of obj.inputs) {
+      graph.get(input).add(obj.id)
+    }
+  }
+
+  // traverse graph
+  while (set.size !== 0) {
+    const curr = set.values().next().value
+    sorted.push(curr)
+
+    for (const obj of graph.get(curr)) {
+      graph.get(curr)
+    }
+  }
+}
 export { runStep }

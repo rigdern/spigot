@@ -143,7 +143,7 @@ const spec = [
             "perception delay",
             "currTime"
         ],
-        logic: (salesRecords, perceptionDelay) => {
+        logic: (salesRecords, perceptionDelay, currTime) => {
             // TODO(adam): Why did we need to also subtract `deliveryDelay` in
             //   our original implementation but not here?
             const perceivedRecords = 

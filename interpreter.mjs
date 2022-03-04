@@ -1,3 +1,5 @@
+import { assert } from './utils.mjs';
+
 // Types
 //
 // interface IUnit {
@@ -32,8 +34,8 @@
 //   type: 'flow';
 //   id: string;
 //   name: string;
-//   from: string; // ID of an IStock
-//   to: string; // ID of an IStock
+//   from: string; // ID of an IStock, IBoundary
+//   to: string; // ID of an IStock, IBoundary
 //   inConverters: string[]; // IDs of IConverters
 //   logic: (...any[]) => number; // Maps output of inConverters to flow rate
 // }
@@ -78,81 +80,118 @@ function runStep(spec, state) {
 
   // Initialize state if necessary
   if (state === undefined) {
-    state = {t: 0} // TODO: Should `t` be a Symbol to make collisions w/ user fields impossible?
+    state = { t: 0, history: {} }
     for (const stock of spec.filter(x => x.type === 'stock')) {
-      state[stock.id] = stock.initialValue
+      state.history[stock.id] = [stock.initialValue]
     }
-    state.history = {}
   }
   const newState = Object.assign({}, state);
   newState.t += 1
 
-  // Run all flows and update state
-  for (const flow of spec.filter(x => x.type === 'flow')) {
-    const flux = flow.logic.apply(
-      undefined,
-      flow.inputs.map(input => resolve(spec, state, input))
-    )
+  topSorted = topologicalSort(spec)
 
-    if (lookup(spec, flow.to).type === 'stock') {
-      newState[flow.to] += flux
-    }
+  for (const id of topSorted) {
+    resolve(spec, id, state, newState)
+  }
+
+  for (const flow of spec.filter(obj => obj.type === 'flows')) {
     if (lookup(spec, flow.from).type === 'stock') {
-      newState[flow.from] -= flux
+      newState.history[flow.from][newState.t] -= newState.history[flow.id][newState.t]
+    }
+    if (lookup(spec, flow.to).type === 'stock') {
+      newState.history[flow.to][newState.t] += newState.history[flow.id][newState.t]
     }
   }
 
   return newState
 }
 
-// TODO: check for cycles in spec and error out
-function resolve(spec, state, input) {
-  const needHistory = typeof(input) === 'object'
-  // list case ["sales"] for history declaration
-  const id = needHistory ? input[0] : input
-  const object = lookup(spec, id)
+function resolve(spec, id, state, newState) {
+  const obj = lookup(spec, id)
+  let currVal
 
-  // Initialize history record
-  if (state.history[id] === undefined) {
-    state.history[id] = []
+  switch (obj.type) {
+    case 'parameter':
+      if (typeof(object.value) === 'function') {
+        currVal = object.value(newState.t)
+      } else {
+        currVal = object.value
+      }
+      break
+    case 'stock':
+      // for easy resolving; the actual stock for today is updated later
+      currVal = state.history[obj.id][state.t]
+      break
+    case 'flow':
+      currVal = obj.logic(...obj.inputs
+        .map(input => {
+          const needHistory = typeof(id) === 'object'
+          const id = needHistory ? input[0] : input
+          return needHistory ? state.history[id] : state.history[id][newState.t]
+        }))
+      break
+    case 'converter':
+
+      break
+    default:
+      throw new Error(`resolve: invalid object ${obj}`)
   }
-
-  // Update History Record
-  if (state.history[id][state.t] === undefined) {
-    let currVal
-    switch (object.type) {
-      case 'parameter':
-        if (typeof(object.value) == 'function') {
-          currVal = object.value(state.t)
-        } else {
-          currVal = object.value
-        }
-        break
-      case 'converter':
-        currVal = object.logic.apply(
-          undefined,
-          object.inputs.map(input => resolve(spec, state, input)))
-        break
-      case 'stock':
-        currVal = state[id]
-        break
-      case 'flow':
-
-        break
-      default:
-        throw new Error('resolve: unknown object type: ' + object.type);
-    }
-    state.history[id][state.t] = currVal
-  }
-
-  // Return correct output
-  if (needHistory) {
-    return makeRecordFunction(state.history[id])
-  } else {
-    return state.history[id][state.t]
-  }
-
+  state.history[obj.id][newState.t] = currVal
 }
+
+function getInputId(input) {
+  return typeof(input) === 'object' ? input[0] : input
+}
+
+
+// TODO: check for cycles in spec and error out
+//function resolve(spec, state, input) {
+//  const needHistory = typeof(input) === 'object'
+//  // list case ["sales"] for history declaration
+//  const id = needHistory ? input[0] : input
+//  const object = lookup(spec, id)
+//
+//  // Initialize history record
+//  if (state.history[id] === undefined) {
+//    state.history[id] = []
+//  }
+//
+//  // Update History Record
+//  if (state.history[id][state.t] === undefined) {
+//    let currVal
+//    switch (object.type) {
+//      case 'parameter':
+//        if (typeof(object.value) == 'function') {
+//          currVal = object.value(state.t)
+//        } else {
+//          currVal = object.value
+//        }
+//        break
+//      case 'converter':
+//        currVal = object.logic.apply(
+//          undefined,
+//          object.inputs.map(input => resolve(spec, state, input)))
+//        break
+//      case 'stock':
+//        currVal = state[id]
+//        break
+//      case 'flow':
+//
+//        break
+//      default:
+//        throw new Error('resolve: unknown object type: ' + object.type);
+//    }
+//    state.history[id][state.t] = currVal
+//  }
+//
+//  // Return correct output
+//  if (needHistory) {
+//    return makeRecordFunction(state.history[id])
+//  } else {
+//    return state.history[id][state.t]
+//  }
+//
+//}
 
 // TODO: check indices in range
 // TODO: handle the stock vs converter current day thing
@@ -195,10 +234,19 @@ function addEdge(graph, node1, node2) {
     addNode(graph, node1)
   }
   if (!incoming.has(node2)) {
-    addNode(graph, node1) // TODO: should this be `node2`?
+    addNode(graph, node2)
   }
   incoming.get(node2).add(node1)
   outgoing.get(node1).add(node2)
+  return graph
+}
+
+function delEdge(graph, node1, node2) {
+  const [outgoing, incoming] = graph
+  assert(outgoing.get(node1).has(node2))
+  assert(incoming.get(node2).has(node1))
+  outgoing.get(node1).delete(node2)
+  incoming.get(node2).delete(node1)
   return graph
 }
 
@@ -214,28 +262,53 @@ function getInEdges(graph, node) {
 
 function topologicalSort(spec) {
   // Kahn's algorithm
-  const set = new Set(spec.filter(obj => obj.type === "stock" || obj.type === "parameter"))
+
+  // Ignore: units, boundary
+  // Initial set: stock, parameter
+  // To process: flow, converter
+
+  const initialSet = []
+  const inputSet = []
+
+  for (const obj of spec) {
+    if (obj.type === 'unit' || obj.type === 'boundary') {
+      // do nothing
+    } else if (obj.type === 'stock' || obj.type === 'parameter') {
+      initialSet.push(obj)
+    } else if (obj.type === 'flow' || obj.type === 'converter') {
+      inputSet.push(obj)
+    } else {
+      assert(false, 'Unknown object type to sort')
+    }
+  }
+
+  const set = new Set(initialSet.map(obj => obj.id))
   const sorted = []
 
   // Preprocess spec so we can quickly look up outputs given an id
-  const graph = new Map() // {"ok": ["asda", "asd"]}
-  for (const obj of spec) {
-    graph.set(obj.id, new Set())
-  }
-  for (const obj of spec) {
+  const graph = makeGraph()
+  for (const obj of inputSet) {
     for (const input of obj.inputs) {
-      graph.get(input).add(obj.id)
+      addEdge(graph, getInputId(input), obj.id)
     }
   }
 
   // traverse graph
   while (set.size !== 0) {
     const curr = set.values().next().value
+    set.delete(curr)
     sorted.push(curr)
 
-    for (const obj of graph.get(curr)) {
-      graph.get(curr)
+    for (const outId of getOutEdges(graph, curr)) {
+      delEdge(graph, curr, outId)
+      if (getInEdges(graph, outId).size === 0) {
+        set.add(outId)
+      }
     }
   }
+
+  assert(initialSet.length + inputSet.length === sorted.length, 'Specification not a DAG!')
+
+  return sorted
 }
-export { runStep }
+export { runStep, topologicalSort, implicitSpec }

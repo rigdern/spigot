@@ -5,6 +5,7 @@
 - Decision, rule, physical law, action (pg 27)
   - These appear to be called "converters" in the model appendix
 - System Boundary (visualized as a cloud)
+  - Act as sources and sinks
 - Feedback loop
   - Balancing
   - Reinforcing

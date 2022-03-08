@@ -88,7 +88,7 @@ function runStep(spec, state) {
   const newState = Object.assign({}, state);
   newState.t += 1
 
-  topSorted = topologicalSort(spec)
+  const topSorted = topologicalSort(spec)
 
   for (const id of topSorted) {
     resolve(spec, id, state, newState)
@@ -112,10 +112,10 @@ function resolve(spec, id, state, newState) {
 
   switch (obj.type) {
     case 'parameter':
-      if (typeof(object.value) === 'function') {
-        currVal = object.value(newState.t)
+      if (typeof(obj.value) === 'function') {
+        currVal = obj.value(newState.t)
       } else {
-        currVal = object.value
+        currVal = obj.value
       }
       break
     case 'stock':
@@ -123,19 +123,20 @@ function resolve(spec, id, state, newState) {
       currVal = state.history[obj.id][state.t]
       break
     case 'flow':
+    case 'converter':
       currVal = obj.logic(...obj.inputs
         .map(input => {
-          const needHistory = typeof(id) === 'object'
+          const needHistory = typeof(input) === 'object'
           const id = needHistory ? input[0] : input
-          return needHistory ? state.history[id] : state.history[id][newState.t]
+            return needHistory ? makeRecordFunction(state.history[id]) : state.history[id][newState.t]
         }))
-      break
-    case 'converter':
-
       break
     default:
       throw new Error(`resolve: invalid object ${obj}`)
   }
+    if (state.history[obj.id] === undefined) {
+	state.history[obj.id] = []
+    }
   state.history[obj.id][newState.t] = currVal
 }
 

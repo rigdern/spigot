@@ -144,13 +144,17 @@ const spec = [
             "currTime"
         ],
         logic: (salesRecords, perceptionDelay, currTime) => {
-            // TODO(adam): Why did we need to also subtract `deliveryDelay` in
-            //   our original implementation but not here?
-            const perceivedRecords = 
-                salesRecords(
-                    currTime - 1 - perceptionDelay,
-                    currTime - 1
-                )
+	    // TODO(adam): Why did we need to also subtract `deliveryDelay` in
+	    //   our original implementation but not here?
+	    let perceivedRecords = 
+		    salesRecords(
+			currTime - 1 - perceptionDelay,
+			currTime - 1
+		    )
+	    // if (perceivedRecords.length < perceptionDelay) {
+	    // 	console.log({perceivedRecords, perceptionDelay})
+	    // 	perceivedRecords = [1,1,23,23,1]
+	    // }
             assert(perceptionDelay === perceivedRecords.length)
             const sum = perceivedRecords.reduce((x, y) => x + y, 0)
             return sum / perceptionDelay

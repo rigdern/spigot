@@ -24,7 +24,10 @@
 - Directly drawing the graphs for time-dependent parameters
 
 # TODO
-- When multiple rules lead to the same output, how do we combine them? Add them? Multiply them? (see figure 37)
+- [ ] Figure out what to do about time indexing
+- [ ] Change time indexing from absolute to relative
+- [ ] Create specs for some other models (e.g. figure 42)
+- [ ] Work on UI
 
 # Prior art
 - Stella

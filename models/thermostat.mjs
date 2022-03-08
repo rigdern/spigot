@@ -60,7 +60,7 @@ const spec = [
     name: 'heat from furnace',
     from: 'furnace',
     to: 'room temperature',
-    inConverters: [
+    inputs: [
       'discrepancy between desired and actual room temperatures'
     ],
     logic: function (discrepancy) {
@@ -80,7 +80,7 @@ const spec = [
     name: 'heat to outside',
     from: 'room temperature',
     to: 'outside',
-    inConverters: [
+    inputs: [
       'discrepancy between inside and outside temperatures'
     ],
     logic: function (discrepancy) {

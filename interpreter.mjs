@@ -56,17 +56,18 @@ import { assert } from './utils.mjs';
 //   - stock
 //   - flow
 
+// On the topic of the record functions, I think they should take relative times, not absolute times
+// the reasoning being that absolute times ruins the declarative iterative nature of the model
+
 // Questions people may have when implementing a model:
 //   - Does an input represent the value for today or the previous day?
 //   - Does my logic ever run when currTime is 0?
 
-const stateInput = Symbol('state')
 const implicitSpec = [
   {
     id: 'currTime',
     type: 'parameter',
-    inputs: [stateInput],
-    logic: (state) => state.t + 1
+    value: (currTime) => currTime
   }
 ]
 
@@ -94,7 +95,7 @@ function runStep(spec, state) {
     resolve(spec, id, state, newState)
   }
 
-  for (const flow of spec.filter(obj => obj.type === 'flows')) {
+  for (const flow of spec.filter(obj => obj.type === 'flow')) {
     if (lookup(spec, flow.from).type === 'stock') {
       newState.history[flow.from][newState.t] -= newState.history[flow.id][newState.t]
     }
@@ -106,6 +107,9 @@ function runStep(spec, state) {
   return newState
 }
 
+// heat from furnace: 0.5
+// heat to outside: 0.8500000000000001
+
 function resolve(spec, id, state, newState) {
   const obj = lookup(spec, id)
   let currVal
@@ -113,7 +117,7 @@ function resolve(spec, id, state, newState) {
   switch (obj.type) {
     case 'parameter':
       if (typeof(obj.value) === 'function') {
-        currVal = obj.value(newState.t)
+        currVal = obj.value(state.t)
       } else {
         currVal = obj.value
       }
@@ -134,9 +138,9 @@ function resolve(spec, id, state, newState) {
     default:
       throw new Error(`resolve: invalid object ${obj}`)
   }
-    if (state.history[obj.id] === undefined) {
-	state.history[obj.id] = []
-    }
+  if (state.history[obj.id] === undefined) {
+    state.history[obj.id] = []
+  }
   state.history[obj.id][newState.t] = currVal
 }
 
@@ -288,6 +292,9 @@ function topologicalSort(spec) {
 
   // Preprocess spec so we can quickly look up outputs given an id
   const graph = makeGraph()
+  for (const obj of spec) {
+    addNode(graph, obj.id)
+  }
   for (const obj of inputSet) {
     for (const input of obj.inputs) {
       addEdge(graph, getInputId(input), obj.id)

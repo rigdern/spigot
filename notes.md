@@ -24,8 +24,8 @@
 - Directly drawing the graphs for time-dependent parameters
 
 # TODO
-- [ ] Figure out what to do about time indexing
-- [ ] Change time indexing from absolute to relative
+- [x] Figure out what to do about time indexing
+- [x] Change time indexing from absolute to relative
 - [ ] Create specs for some other models (e.g. figure 42)
 - [ ] Work on UI
 

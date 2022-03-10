@@ -132,7 +132,9 @@ function resolve(spec, id, state, newState) {
         .map(input => {
           const needHistory = typeof(input) === 'object'
           const id = needHistory ? input[0] : input
-            return needHistory ? makeRecordFunction(state.history[id]) : state.history[id][newState.t]
+          return needHistory 
+                  ? makeRecordFunction(spec, id, state.history[id], newState.t) 
+                  : state.history[id][newState.t]
         }))
       break
     default:
@@ -148,64 +150,21 @@ function getInputId(input) {
   return typeof(input) === 'object' ? input[0] : input
 }
 
-
-// TODO: check for cycles in spec and error out
-//function resolve(spec, state, input) {
-//  const needHistory = typeof(input) === 'object'
-//  // list case ["sales"] for history declaration
-//  const id = needHistory ? input[0] : input
-//  const object = lookup(spec, id)
-//
-//  // Initialize history record
-//  if (state.history[id] === undefined) {
-//    state.history[id] = []
-//  }
-//
-//  // Update History Record
-//  if (state.history[id][state.t] === undefined) {
-//    let currVal
-//    switch (object.type) {
-//      case 'parameter':
-//        if (typeof(object.value) == 'function') {
-//          currVal = object.value(state.t)
-//        } else {
-//          currVal = object.value
-//        }
-//        break
-//      case 'converter':
-//        currVal = object.logic.apply(
-//          undefined,
-//          object.inputs.map(input => resolve(spec, state, input)))
-//        break
-//      case 'stock':
-//        currVal = state[id]
-//        break
-//      case 'flow':
-//
-//        break
-//      default:
-//        throw new Error('resolve: unknown object type: ' + object.type);
-//    }
-//    state.history[id][state.t] = currVal
-//  }
-//
-//  // Return correct output
-//  if (needHistory) {
-//    return makeRecordFunction(state.history[id])
-//  } else {
-//    return state.history[id][state.t]
-//  }
-//
-//}
-
 // TODO: check indices in range
 // TODO: handle the stock vs converter current day thing
-function makeRecordFunction(history) {
+function makeRecordFunction(spec, id, history, t) {
+  const type = lookup(spec, id).type
+  const offset = type === 'stock' ? 1 : 0
   return (time1, time2) => {
     if (time2 === undefined) {
-      return history[time1]
+      return history[t - offset - time1]
     } else {
-      return history.slice(time1, time2)
+      let historyStart = 0
+      for (; history[historyStart] === undefined; historyStart++) {}
+      return history.slice(
+        Math.max(historyStart, t - offset - time2),
+        Math.max(historyStart, t - offset - time1)
+      ).reverse()
     }
   }
 }

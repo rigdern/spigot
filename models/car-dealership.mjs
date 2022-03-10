@@ -105,7 +105,7 @@ const spec = [
             // orders to factory (t – delivery delay) ... for time 6 to 100
             currTime <= deliveryDelay
             ? 20
-            : orderRecords(currTime - deliveryDelay)
+            : orderRecords(deliveryDelay)
     },
 
     {
@@ -144,21 +144,20 @@ const spec = [
             "currTime"
         ],
         logic: (salesRecords, perceptionDelay, currTime) => {
-	    // TODO(adam): Why did we need to also subtract `deliveryDelay` in
-	    //   our original implementation but not here?
-	    let perceivedRecords = 
-		    salesRecords(
-			currTime - 1 - perceptionDelay,
-			currTime - 1
-		    )
-	    // if (perceivedRecords.length < perceptionDelay) {
-	    // 	console.log({perceivedRecords, perceptionDelay})
-	    // 	perceivedRecords = [1,1,23,23,1]
-	    // }
-            assert(perceptionDelay === perceivedRecords.length)
-            const sum = perceivedRecords.reduce((x, y) => x + y, 0)
-            return sum / perceptionDelay
-        }
+            // TODO(adam): Why did we need to also subtract `deliveryDelay` in
+            //   our original implementation but not here?
+            let perceivedRecords = salesRecords(0, perceptionDelay)
+            // TODO(adam): Will perceivedRecords.length < perceptionDelay and
+            //   consequently this assertion fail when currTime < perceptionDelay?
+            //if (perceivedRecords.length < perceptionDelay) {
+            //    console.log({perceivedRecords, perceptionDelay})
+            //    perceivedRecords = [1,1,23,23,1]
+            //}
+                //assert(perceptionDelay === perceivedRecords.length)
+                const sum = perceivedRecords.reduce((x, y) => x + y, 0)
+                const avg = perceivedRecords.length === 0 ? 0 : (sum / perceivedRecords.length)
+                return avg
+            }
     },
 
     {

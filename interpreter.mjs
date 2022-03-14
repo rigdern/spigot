@@ -79,53 +79,56 @@ const implicitSpec = [
 function runStep(spec, state) {
   spec = spec.concat(implicitSpec)
 
+  let newState = {}
   // Initialize state if necessary
   if (state === undefined) {
-    state = { t: 0, history: {} }
+    newState = { t: 0, history: {} }
     for (const stock of spec.filter(x => x.type === 'stock')) {
-      state.history[stock.id] = [stock.initialValue]
+      newState.history[stock.id] = [stock.initialValue]
+    }
+  } else {
+    Object.assign(newState, state)
+    newState.t += 1
+    // Initialize current timestep's stocks
+    for (const stock of spec.filter(obj => obj.type === 'stock')) {
+      newState.history[stock.id][newState.t] = newState.history[stock.id][state.t]
+    }
+    // Update today's stocks with the flows from last timestep
+    for (const flow of spec.filter(obj => obj.type === 'flow')) {
+      if (lookup(spec, flow.from).type === 'stock') {
+        newState.history[flow.from][newState.t] -= newState.history[flow.id][state.t]
+      }
+      if (lookup(spec, flow.to).type === 'stock') {
+        newState.history[flow.to][newState.t] += newState.history[flow.id][state.t]
+      }
     }
   }
-  const newState = Object.assign({}, state);
-  newState.t += 1
 
   const topSorted = topologicalSort(spec)
 
   for (const id of topSorted) {
-    resolve(spec, id, state, newState)
+    resolve(spec, id, newState)
   }
-
-  for (const flow of spec.filter(obj => obj.type === 'flow')) {
-    if (lookup(spec, flow.from).type === 'stock') {
-      newState.history[flow.from][newState.t] -= newState.history[flow.id][newState.t]
-    }
-    if (lookup(spec, flow.to).type === 'stock') {
-      newState.history[flow.to][newState.t] += newState.history[flow.id][newState.t]
-    }
-  }
-
   return newState
 }
 
 // heat from furnace: 0.5
 // heat to outside: 0.8500000000000001
 
-function resolve(spec, id, state, newState) {
+function resolve(spec, id, newState) {
   const obj = lookup(spec, id)
   let currVal
 
   switch (obj.type) {
     case 'parameter':
       if (typeof(obj.value) === 'function') {
-        currVal = obj.value(state.t)
+        currVal = obj.value(newState.t)
       } else {
         currVal = obj.value
       }
       break
     case 'stock':
-      // for easy resolving; the actual stock for today is updated later
-      currVal = state.history[obj.id][state.t]
-      break
+      break // nothing to do, was updated already
     case 'flow':
     case 'converter':
       currVal = obj.logic(...obj.inputs
@@ -133,37 +136,43 @@ function resolve(spec, id, state, newState) {
           const needHistory = typeof(input) === 'object'
           const id = needHistory ? input[0] : input
           return needHistory 
-                  ? makeRecordFunction(spec, id, state.history[id], newState.t) 
-                  : state.history[id][newState.t]
+                  ? makeRecordFunction(spec, id, newState.history[id], newState.t) 
+                  : newState.history[id][newState.t]
         }))
       break
     default:
       throw new Error(`resolve: invalid object ${obj}`)
   }
-  if (state.history[obj.id] === undefined) {
-    state.history[obj.id] = []
+  if (newState.history[obj.id] === undefined) {
+    newState.history[obj.id] = []
   }
-  state.history[obj.id][newState.t] = currVal
+  if (currVal !== undefined) {
+    newState.history[obj.id][newState.t] = currVal
+  }
 }
 
 function getInputId(input) {
   return typeof(input) === 'object' ? input[0] : input
 }
 
+//  0 1 2 3 4 5 6
+// [a,b,c,d,e,f,g]
+// t = 6
+// time1 = 0, time2 = 1
+// t - time2 = 6 - 1 = 5
+// t - time1 = 6 - 0 = 6
+
 // TODO: check indices in range
 // TODO: handle the stock vs converter current day thing
 function makeRecordFunction(spec, id, history, t) {
   const type = lookup(spec, id).type
-  const offset = type === 'stock' ? 1 : 0
   return (time1, time2) => {
     if (time2 === undefined) {
-      return history[t - offset - time1]
+      return history[t - time1]
     } else {
-      let historyStart = 0
-      for (; history[historyStart] === undefined; historyStart++) {}
       return history.slice(
-        Math.max(historyStart, t - offset - time2),
-        Math.max(historyStart, t - offset - time1)
+        Math.max(0, t - time2 + 1),
+        Math.max(0, t - time1 + 1)
       ).reverse()
     }
   }

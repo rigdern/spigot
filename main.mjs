@@ -14,11 +14,13 @@ console.table(
 	state.history['inventory']//['room temperature']
 )
 
-document.body.appendChild(
-	makeChart({
-		coordinates: state.history['inventory'].map((value, index) => [index, value]),
-		xRange: [0, 100],
-		yRange: [0, 500],
-		caption: 'Figure 30',
-	})
-);
+if (typeof(document) !== 'undefined') {
+	document.body.appendChild(
+		makeChart({
+			coordinates: state.history['inventory'].map((value, index) => [index, value]),
+			xRange: [0, 100],
+			yRange: [0, 500],
+			caption: 'Figure 30',
+		})
+	);
+}

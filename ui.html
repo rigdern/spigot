@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spigot Editor</title>
+  <style>
+    * {
+      padding: 0;
+      margin: 0;
+      box-sizing: border-box;
+    }
+
+    canvas {
+      border: 1px solid black;
+      display: block;
+    }
+
+    .body-container {
+      display: flex;
+      flex-direction: row;
+    }
+    .side-container {
+      display: flex;
+    }
+  </style>
+</head>
+<body>
+  <div class="body-container"></div>
+    <ul class="nodes">
+    </ul>
+    <div class="side-container">
+      <div class="grapher">
+        <div class="graph"></div>
+        <input class="graph-start" type="number" value="0">
+        <input class="graph-end" type="number" value="10">
+        <input class="graph-btn" type="button" value="regraph">
+      </div>
+      <div class="node-editor">
+        <textarea class="add-node-editor"> </textarea>
+        <button class="add-node">Add Node</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { spec } from "./models/car-dealership.mjs"
+    window.model = spec
+    const model = window.model
+
+    const nodes = document.querySelector(".nodes")
+    for (const obj of model) {
+      const node = document.createElement("p")
+      node.textContent = JSON.stringify(obj, (_, v) => typeof(v) === "function" ? v.toString() : v)
+      nodes.appendChild(node)
+    }
+
+    const btn = document.querySelector(".add-node")
+    const editor = document.querySelector(".add-node-editor")
+    btn.addEventListener("click", (evt) => {
+      const newNode = eval(`(0,${editor.value})`)
+      model.push(newNode)
+      const node = document.createElement("p")
+      node.textContent = editor.value
+      nodes.appendChild(node)
+      editor.value = ""
+    })
+  </script>
+  <script type="module">
+    import { makeChart } from "./chart.mjs"
+    import { runStep } from "./interpreter.mjs"
+    import { range } from "./utils.mjs"
+    const btn = document.querySelector(".graph-btn")
+    const graph = document.querySelector(".graph")
+
+    btn.addEventListener("click", (evt) => {
+      const start = parseInt(document.querySelector(".graph-start").value, 10)
+      const end = parseInt(document.querySelector(".graph-end").value, 10)
+      const state = range(start, end).reduce((state, _) => runStep(window.model, state), undefined)
+
+      graph.innerHTML = ""
+
+      graph.appendChild(
+        makeChart({
+          coordinates: state.history['inventory'].map((value, index) => [index, value]),
+          xRange: [start, end],
+          yRange: [0, 500],
+          caption: 'blah',
+        })
+      )
+    })
+  </script>
+</body>
+</html>

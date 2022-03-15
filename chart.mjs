@@ -1,16 +1,4 @@
-function makeElement(tagName, children) {
-  const el = document.createElement(tagName);
-  (children || []).forEach(child => {
-    el.appendChild(child);
-  });
-  return el;
-}
-
-function div(children) { return makeElement('div', children); }
-function h3(children) { return makeElement('h3', children); }
-function hr() { return makeElement('hr', []); }
-function br() { return makeElement('br', []); }
-function text(data) { return document.createTextNode(data); }
+import { makeElement, div, h3, hr, br, text } from "./utils.mjs"
 
 export function makeChart(args) {
   const {
@@ -59,7 +47,7 @@ export function makeChart(args) {
     const canvasX = (canvasMaxX - 20) / rebasedMaxX * rebasedX + 10;
     const canvasY = canvasMaxY - 10 - ((canvasMaxY - 20) / rebasedMaxY * rebasedY);
 
-    console.log('x: ' + canvasX + ', y: ' + canvasY);
+    //console.log('x: ' + canvasX + ', y: ' + canvasY);
 
     if (index === 0) {
       ctx.moveTo(canvasX, canvasY);

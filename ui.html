@@ -23,47 +23,72 @@
     }
     .side-container {
       display: flex;
+      flex-direction: column;
     }
   </style>
 </head>
 <body>
-  <div class="body-container"></div>
-    <ul class="nodes">
-    </ul>
-    <div class="side-container">
-      <div class="grapher">
-        <div class="graph"></div>
-        <input class="graph-start" type="number" value="0">
-        <input class="graph-end" type="number" value="10">
-        <input class="graph-btn" type="button" value="regraph">
-      </div>
-      <div class="node-editor">
-        <textarea class="add-node-editor"> </textarea>
-        <button class="add-node">Add Node</button>
+  <div class="body-container">
+      <ul class="nodes"></ul>
+      <div class="side-container">
+	  <div class="grapher">
+              <div class="graph"></div>
+              <input class="graph-start" type="number" value="0">
+              <input class="graph-end" type="number" value="10">
+              <input class="graph-btn" type="button" value="regraph">
+	  </div>
+	  <div class="node-editor">
+              <div class="node-editor-box">
+	      </div>
+              <button class="node-editor-btn">Add/edit Node</button>
+	  </div>
       </div>
     </div>
   </div>
 
   <script type="module">
     import { spec } from "./models/car-dealership.mjs"
-    window.model = spec
+   import { Model } from "./ui/model.mjs"
+   import { makeEditor } from "./ui/node_editor.mjs"
+
+    window.model = new Model()
     const model = window.model
 
     const nodes = document.querySelector(".nodes")
-    for (const obj of model) {
-      const node = document.createElement("p")
-      node.textContent = JSON.stringify(obj, (_, v) => typeof(v) === "function" ? v.toString() : v)
-      nodes.appendChild(node)
+   const editor_box = document.querySelector(".node-editor-box")
+
+   function serialize(obj) {
+       return JSON.stringify(obj, (_, v) => typeof(v) === "function" ? v.toString() : v)
+   }
+
+   model.notifier.subscribe("insert", (obj) => {
+       const node = document.createElement("p")
+       node.id = obj.id
+       node.textContent = serialize(obj)
+       node.addEventListener("click", (evt) => {
+	   editor_box.innerHTML = ""
+	   editor_box.appendChild(makeEditor(model.lookup(obj.id)))
+       })
+       nodes.appendChild(node)
+   })
+   model.notifier.subscribe("edit", (obj) => {
+       const node = nodes.querySelector(`#${obj.id}`)
+       node.textContent = serialize(obj)
+   })
+   model.notifier.subscribe("delete", (obj) => {
+       const node = nodes.querySelector(`#${obj.id}`)
+       nodes.removeChild(node)
+   })
+
+    for (const obj of spec) {
+	window.model.upsertNode(obj)
     }
 
-    const btn = document.querySelector(".add-node")
-    const editor = document.querySelector(".add-node-editor")
+    const btn = document.querySelector(".node-editor-btn")
+    const editor = document.querySelector(".node-editor-box")
     btn.addEventListener("click", (evt) => {
       const newNode = eval(`(0,${editor.value})`)
-      model.push(newNode)
-      const node = document.createElement("p")
-      node.textContent = editor.value
-      nodes.appendChild(node)
+      model.upsertNode(newNode)
       editor.value = ""
     })
   </script>
@@ -77,7 +102,7 @@
     btn.addEventListener("click", (evt) => {
       const start = parseInt(document.querySelector(".graph-start").value, 10)
       const end = parseInt(document.querySelector(".graph-end").value, 10)
-      const state = range(start, end).reduce((state, _) => runStep(window.model, state), undefined)
+      const state = window.model.simulate(end)
 
       graph.innerHTML = ""
 

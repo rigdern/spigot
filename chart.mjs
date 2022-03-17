@@ -1,4 +1,4 @@
-import { makeElement, div, h3, hr, br, text } from "./utils.mjs"
+import { h, div, h3, hr, br, text } from "./utils.mjs"
 
 export function makeChart(args) {
   const {
@@ -20,7 +20,7 @@ export function makeChart(args) {
   const canvasMaxX = 300;
   const canvasMaxY = 150;
 
-  const canvas = makeElement('canvas', []);
+  const canvas = h('canvas', {}, []);
   const ctx = canvas.getContext('2d');
 
   ctx.save();

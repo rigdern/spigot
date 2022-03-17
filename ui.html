@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -21,76 +22,68 @@
       display: flex;
       flex-direction: row;
     }
+
     .side-container {
       display: flex;
       flex-direction: column;
     }
   </style>
 </head>
+
 <body>
   <div class="body-container">
-      <ul class="nodes"></ul>
-      <div class="side-container">
-	  <div class="grapher">
-              <div class="graph"></div>
-              <input class="graph-start" type="number" value="0">
-              <input class="graph-end" type="number" value="10">
-              <input class="graph-btn" type="button" value="regraph">
-	  </div>
-	  <div class="node-editor">
-              <div class="node-editor-box">
-	      </div>
-              <button class="node-editor-btn">Add/edit Node</button>
-	  </div>
+    <ul class="nodes"></ul>
+    <div class="side-container">
+      <div class="grapher">
+        <div class="graph"></div>
+        <input class="graph-start" type="number" value="0">
+        <input class="graph-end" type="number" value="100">
+        <input class="graph-btn" type="button" value="regraph">
       </div>
     </div>
+  </div>
   </div>
 
   <script type="module">
     import { spec } from "./models/car-dealership.mjs"
-   import { Model } from "./ui/model.mjs"
-   import { makeEditor } from "./ui/node_editor.mjs"
+    import { Model } from "./ui/model.mjs"
+    import { makeEditor } from "./ui/node_editor.mjs"
+    import { h, text } from "./utils.mjs"
 
     window.model = new Model()
     const model = window.model
 
     const nodes = document.querySelector(".nodes")
-   const editor_box = document.querySelector(".node-editor-box")
 
-   function serialize(obj) {
-       return JSON.stringify(obj, (_, v) => typeof(v) === "function" ? v.toString() : v)
-   }
-
-   model.notifier.subscribe("insert", (obj) => {
-       const node = document.createElement("p")
-       node.id = obj.id
-       node.textContent = serialize(obj)
-       node.addEventListener("click", (evt) => {
-	   editor_box.innerHTML = ""
-	   editor_box.appendChild(makeEditor(model.lookup(obj.id)))
-       })
-       nodes.appendChild(node)
-   })
-   model.notifier.subscribe("edit", (obj) => {
-       const node = nodes.querySelector(`#${obj.id}`)
-       node.textContent = serialize(obj)
-   })
-   model.notifier.subscribe("delete", (obj) => {
-       const node = nodes.querySelector(`#${obj.id}`)
-       nodes.removeChild(node)
-   })
-
-    for (const obj of spec) {
-	window.model.upsertNode(obj)
+    function serialize(obj) {
+      return JSON.stringify(obj, (_, v) => typeof (v) === "function" ? v.toString() : v)
     }
 
-    const btn = document.querySelector(".node-editor-btn")
-    const editor = document.querySelector(".node-editor-box")
-    btn.addEventListener("click", (evt) => {
-      const newNode = eval(`(0,${editor.value})`)
-      model.upsertNode(newNode)
-      editor.value = ""
+    function renderNode(obj) {
+      return h('details', { id: obj.id }, [
+        h('summary', {}, [text(`[${obj.type}] ${obj.name}`)]),
+        makeEditor(obj, model),
+      ])
+    }
+
+    model.notifier.subscribe("insert", (obj) => {
+      const node = renderNode(obj)
+      nodes.appendChild(node)
     })
+    model.notifier.subscribe("edit", (obj) => {
+      const oldNode = document.getElementById(obj.id)
+      const newNode = renderNode(obj);
+      newNode.open = oldNode.open;
+      nodes.replaceChild(newNode, oldNode)
+    })
+    model.notifier.subscribe("delete", (obj) => {
+      const node = nodes.querySelector(`#${obj.id}`)
+      nodes.removeChild(node)
+    })
+
+    for (const obj of spec) {
+      window.model.upsert(obj)
+    }
   </script>
   <script type="module">
     import { makeChart } from "./chart.mjs"
@@ -117,4 +110,5 @@
     })
   </script>
 </body>
+
 </html>

@@ -15,7 +15,7 @@ export class Model {
 	}
 	return undefined
     }
-    upsertNode(node) {
+    upsert(node) {
 	const oldNode = this.lookup(node.id)
 	if (oldNode !== undefined) {
 	    const idx = this.model.indexOf(oldNode)

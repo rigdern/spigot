@@ -40,43 +40,99 @@ function convertNodeToType(node, type, model) {
     return newNode;
 }
 
-export function makeEditor(node, model) {
-    let element;
-    let newNode = Object.assign({}, node);
-    const children = [
-        h('div', {}, [
-            text('name:'),
-            h('input', {
-                type: 'text',
-                value: node.name,
-                oninput: evt => {
-                    newNode.name = evt.target.value;
-                }
-            }),
-        ]),
-        h('div', {}, [
-            text('type:'),
-            h('select', {
-                value: node.type,
-                oninput: evt => {
-                    console.log('oldNode:' + JSON.stringify(newNode));
-                    newNode = convertNodeToType(newNode, evt.target.value, model)
-                    console.log('newNode:' + JSON.stringify(newNode));
-                    // TODO: Drop down loses focus because we deleted it and
-                    //   created a new identical one.
-                    element.parentElement.replaceChild(makeEditor(newNode, model), element);
-                }
-            }, [
-                h('option', {}, [text('unit')]),
-                h('option', {}, [text('parameter')]),
-                h('option', {}, [text('boundary')]),
-                h('option', {}, [text('stock')]),
-                h('option', {}, [text('flow')]),
-                h('option', {}, [text('converter')]),
-            ]),
-        ]),
-    ];
+function makeStockAndBoundarySelector(field, node, model) {
+    return h('select', {
+        value: node[field],
+        oninput: evt => {
+            node[field] = evt.target.value
+        },
+    }, model.model // TODO: units should match
+        .filter(obj => obj.type === 'stock' || obj.type == 'boundary')
+        .map(obj => h('option', { value: obj.id }, [text(obj.name)]))
+    )
+}
 
-    element = div(children);
+function makeField(element, field, node, model, state) {
+    switch (field) {
+        case 'name':
+            return h('div', {}, [
+                text('name:'),
+                h('input', {
+                    type: 'text',
+                    value: node.name,
+                    oninput: evt => {
+                        node.name = evt.target.value;
+                    }
+                }),
+            ])
+        case 'type':
+            return h('div', {}, [
+                text('type:'),
+                h('select', {
+                    value: node.type,
+                    oninput: evt => {
+                        node = convertNodeToType(node, evt.target.value, model)
+                        // TODO: Drop down loses focus because we deleted it and
+                        //   created a new identical one.
+                        element.parentElement.replaceChild(makeEditor(node, model), element);
+                    }
+                }, [
+                    h('option', {}, [text('unit')]),
+                    h('option', {}, [text('parameter')]),
+                    h('option', {}, [text('boundary')]),
+                    h('option', {}, [text('stock')]),
+                    h('option', {}, [text('flow')]),
+                    h('option', {}, [text('converter')]),
+                ]),
+            ])
+        case 'logic':
+            return h('div', {}, [
+                text('logic: '),
+                h('textarea', {
+                    value: node.logic,
+                    oninput: evt => {
+                        node.logic = eval(`(0,${evt.target.value})`)
+                    }
+                })])
+        case 'to':
+            return h('div', {}, [
+                text('to: '),
+                makeStockAndBoundarySelector('to', node, model)
+            ])
+        case 'from':
+            return h('div', {}, [
+                text('from: '),
+                makeStockAndBoundarySelector('from', node, model)
+            ])
+        case 'initialValue':
+            return h('div', {}, [
+                text('Initial value:'),
+                h('input', { 
+                    type: "number",
+                    value: node.initialValue,
+                    oninput: evt => {
+                        node.initialValue = parseFloat(evt.target.value)
+                    }
+                })
+            ])
+        default:
+            return h('p', { type: field }, [])
+    }
+}
+
+export function makeEditor(node, model) {
+    const element = div([
+        h('button', {
+            onclick: evt => {
+                model.upsert(Object.assign({}, newNode))
+            }
+        }, [text('Add/edit Node')])])
+    const state = {}
+    let newNode = Object.assign({}, node);
+    Object.keys(newNode)
+        .forEach(k => {
+            element.appendChild(makeField(element, k, newNode, model, state))
+        })
+
     return element;
 }

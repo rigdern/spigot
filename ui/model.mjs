@@ -3,8 +3,8 @@ import { range } from "../utils.mjs"
 import { Notifier } from "./notifier.mjs"
 
 export class Model {
-    constructor() {
-	this.model = []
+    constructor(spec) {
+	this.model = spec.slice(0)
 	this.notifier = new Notifier()
     }
     lookup(id) {

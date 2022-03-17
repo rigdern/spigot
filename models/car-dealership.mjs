@@ -125,12 +125,14 @@ const spec = [
     {
         id: 'customers',
         type: 'boundary',
+        name: 'customers',
         unit: 'cars'
     },
 
     {
         id: 'factory',
         type: 'boundary',
+        name: 'factory',
         unit: 'cars'
     },
 

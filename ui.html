@@ -50,7 +50,7 @@
     import { makeEditor } from "./ui/node_editor.mjs"
     import { h, text } from "./utils.mjs"
 
-    window.model = new Model()
+    window.model = new Model(spec)
     const model = window.model
 
     const nodes = document.querySelector(".nodes")
@@ -65,6 +65,11 @@
         makeEditor(obj, model),
       ])
     }
+
+    model.model.forEach(obj => {
+      const node = renderNode(obj)
+      nodes.appendChild(node)
+    });
 
     model.notifier.subscribe("insert", (obj) => {
       const node = renderNode(obj)

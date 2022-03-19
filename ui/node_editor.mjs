@@ -1,4 +1,5 @@
 import { div, input, h3, hr, br, p, text, h, assert } from "../utils.mjs"
+import { getInputId } from "../interpreter.mjs"
 
 function convertNodeToType(node, type, model) {
     const newNode = {
@@ -115,6 +116,30 @@ function makeField(element, field, node, model, state) {
                     }
                 })
             ])
+        case 'inputs':
+            {
+                const currentInputs = {};
+                node.inputs.forEach(input => {
+                    currentInputs[getInputId(input)] = true;
+                });
+                const possibleInputs = (
+                    model.model
+                        .filter(obj => obj.type !== 'unit' && obj.type !== 'boundary')
+                        .sort((a, b) => (''+a).localeCompare(''+b))
+                );
+                return h('div', {}, 
+                    possibleInputs.map(obj =>
+                        h('div', {}, [
+                            h('input', {
+                                type: 'checkbox',
+                                checked: currentInputs[obj.id],
+                            }),
+                            text(' '),
+                            text(obj.name)
+                        ]
+                    )) 
+                )
+            }
         default:
             return h('p', { type: field }, [])
     }
@@ -126,7 +151,7 @@ export function makeEditor(node, model) {
             onclick: evt => {
                 model.upsert(Object.assign({}, newNode))
             }
-        }, [text('Add/edit Node')])])
+        }, [text('Edit Node')])])
     const state = {}
     let newNode = Object.assign({}, node);
     Object.keys(newNode)

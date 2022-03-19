@@ -32,3 +32,8 @@ export function assert(pred, msg) {
     throw new Error(msg || 'Assertion failed');
   }
 }
+
+// Returns a random number between 0 (inclusive) and max (exclusive)
+export function getRandomInt(max) {
+  return Math.floor(Math.random() * max);
+}

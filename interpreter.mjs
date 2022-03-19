@@ -66,6 +66,7 @@ import { assert } from './utils.mjs';
 const implicitSpec = [
   {
     id: 'currTime',
+    name: "Current Timestep",
     type: 'parameter',
     value: (currTime) => currTime
   }
@@ -151,6 +152,10 @@ function resolve(spec, id, newState) {
   }
 }
 
+// TODO: Change representation of inputs that need history from this:
+//   ['orders']
+// to this:
+//   { id: 'orders', needsHistory: true }
 function getInputId(input) {
   return typeof(input) === 'object' ? input[0] : input
 }
@@ -249,7 +254,11 @@ function topologicalSort(spec) {
     } else if (obj.type === 'stock' || obj.type === 'parameter') {
       initialSet.push(obj)
     } else if (obj.type === 'flow' || obj.type === 'converter') {
-      inputSet.push(obj)
+      if (obj.inputs.length === 0) {
+        initialSet.push(obj)
+      } else {
+        inputSet.push(obj)
+      }
     } else {
       assert(false, 'Unknown object type to sort')
     }
@@ -287,4 +296,4 @@ function topologicalSort(spec) {
 
   return sorted
 }
-export { runStep, topologicalSort, implicitSpec }
+export { runStep, implicitSpec, getInputId }

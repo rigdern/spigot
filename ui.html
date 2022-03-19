@@ -32,7 +32,10 @@
 
 <body>
   <div class="body-container">
-    <ul class="nodes"></ul>
+    <div class="nodes-container">
+      <ul class="nodes"></ul>
+      <button class="add-node">Add node</button>
+    </div>
     <div class="side-container">
       <div class="grapher">
         <div class="graph"></div>
@@ -60,9 +63,23 @@
     }
 
     function renderNode(obj) {
-      return h('details', { id: obj.id }, [
-        h('summary', {}, [text(`[${obj.type}] ${obj.name}`)]),
-        makeEditor(obj, model),
+      return h('div', { id: obj.id }, [
+        h('details', {}, [
+          h('summary', {}, [
+            h('button', {
+              onclick: () => {
+                // TODO: Before deleting the node, check that the node isn't a
+                //   dependency of any other node.
+                const deletionConfirmed = confirm(`Are you sure you want to delete "${obj.name}"?`);
+                if (deletionConfirmed) {
+                  model.deleteNode(obj.id);
+                }
+              }
+            }, [text('🗑')]),
+            text(`[${obj.type}] ${obj.name}`)
+          ]),
+          makeEditor(obj, model),
+        ])
       ])
     }
 
@@ -78,7 +95,9 @@
     model.notifier.subscribe("edit", (obj) => {
       const oldNode = document.getElementById(obj.id)
       const newNode = renderNode(obj);
-      newNode.open = oldNode.open;
+
+      newNode.querySelector('details').open = oldNode.querySelector('details').open;
+
       nodes.replaceChild(newNode, oldNode)
     })
     model.notifier.subscribe("delete", (obj) => {
@@ -89,6 +108,18 @@
     for (const obj of spec) {
       window.model.upsert(obj)
     }
+  </script>
+  <script type="module">
+    import { getRandomInt } from "../utils.mjs"
+    const newObj = {
+      id: getRandomInt(Number.MAX_SAFE_INTEGER), 
+      type: 'boundary', 
+      name: 'placeholder',
+    }
+    const addNodeBtn = document.querySelector(".add-node")
+    addNodeBtn.addEventListener("click", (evt) => {
+      model.upsert(newObj)
+    })
   </script>
   <script type="module">
     import { makeChart } from "./chart.mjs"
@@ -109,7 +140,7 @@
           coordinates: state.history['inventory'].map((value, index) => [index, value]),
           xRange: [start, end],
           yRange: [0, 500],
-          caption: 'blah',
+          caption: 'Inventory',
         })
       )
     })

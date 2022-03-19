@@ -1,9 +1,7 @@
-import { runStep, topologicalSort, implicitSpec } from "./interpreter.mjs"
+import { runStep } from "./interpreter.mjs"
 import { spec } from "./models/car-dealership.mjs"
 import { makeChart } from "./chart.mjs"
 import { range } from './utils.mjs';
-
-console.table(topologicalSort(spec.concat(implicitSpec)))
 
 const state = (
 	range(0, 100)

@@ -39,9 +39,18 @@
     <div class="side-container">
       <div class="grapher">
         <div class="graph"></div>
-        <input class="graph-start" type="number" value="0">
-        <input class="graph-end" type="number" value="100">
-        <input class="graph-btn" type="button" value="regraph">
+        <select class="graph-item"></select>
+        <div> 
+          <p>x-axis range</p>
+          <input class="graph-start" type="number" value="0">
+          <input class="graph-end" type="number" value="100">
+        </div>
+        <div> 
+          <p>y-axis range</p>
+          <input class="graph-bot" type="number" value="0">
+          <input class="graph-top" type="number" value="400">
+        </div>
+        <input class="graph-btn" type="button" value="Graph!">
       </div>
     </div>
   </div>
@@ -83,10 +92,10 @@
       ])
     }
 
-    model.model.forEach(obj => {
+    for (const obj of model) {
       const node = renderNode(obj)
       nodes.appendChild(node)
-    });
+    }
 
     model.notifier.subscribe("insert", (obj) => {
       const node = renderNode(obj)
@@ -124,23 +133,33 @@
   <script type="module">
     import { makeChart } from "./chart.mjs"
     import { runStep } from "./interpreter.mjs"
-    import { range } from "./utils.mjs"
+    import { h, text, range } from "./utils.mjs"
     const btn = document.querySelector(".graph-btn")
     const graph = document.querySelector(".graph")
+    const selector = document.querySelector(".graph-item")
+      
+    for (const obj of window.model) {
+      if (obj.type !== 'unit' && obj.type !== 'boundary') {
+        selector.appendChild(h('option', {value: obj.id}, [text(obj.name)]))
+      }
+    }
 
     btn.addEventListener("click", (evt) => {
       const start = parseInt(document.querySelector(".graph-start").value, 10)
       const end = parseInt(document.querySelector(".graph-end").value, 10)
+      const bottom = parseInt(document.querySelector(".graph-bot").value, 10)
+      const top = parseInt(document.querySelector(".graph-top").value, 10)
       const state = window.model.simulate(end)
+
 
       graph.innerHTML = ""
 
       graph.appendChild(
         makeChart({
-          coordinates: state.history['inventory'].map((value, index) => [index, value]),
+          coordinates: state.history[selector.value].map((value, index) => [index, value]),
           xRange: [start, end],
-          yRange: [0, 500],
-          caption: 'Inventory',
+          yRange: [bottom, top],
+          caption: window.model.lookup(selector.value).name,
         })
       )
     })

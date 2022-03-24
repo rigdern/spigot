@@ -4,7 +4,13 @@ export function h(tagName, props, children) {
     el.appendChild(child);
   });
   Object.keys(props || {}).forEach(k => {
-    el[k] = props[k];
+    if (k === 'attr') {
+      Object.keys(props.attr).forEach(attrName => {
+        el.setAttribute(attrName, props.attr[attrName]);
+      });
+    } else {
+      el[k] = props[k];
+    }
   });
   return el;
 }

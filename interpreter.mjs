@@ -36,7 +36,7 @@ import { assert } from './utils.mjs';
 //   name: string;
 //   from: string; // ID of an IStock, IBoundary
 //   to: string; // ID of an IStock, IBoundary
-//   inConverters: string[]; // IDs of IConverters
+//   inputs: string[]; // IDs of IParameters, IConverters, IFlows, and IStocks.
 //   logic: (...any[]) => number; // Maps output of inConverters to flow rate
 // }
 //
@@ -296,4 +296,13 @@ function topologicalSort(spec) {
 
   return sorted
 }
-export { runStep, implicitSpec, getInputId }
+
+function cloneNode(node) {
+  const newNode = Object.assign({}, node);
+  if (newNode.inputs) {
+    newNode.inputs = newNode.inputs.map(input => typeof(input) === 'object' ? input.slice(0) : input);
+  }
+  return newNode;
+}
+
+export { runStep, implicitSpec, getInputId, cloneNode }

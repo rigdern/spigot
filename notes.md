@@ -26,8 +26,17 @@
 # TODO
 - [x] Figure out what to do about time indexing
 - [x] Change time indexing from absolute to relative
+- [x] Consider updating the time implementation to match Stella. Every component gets a value on every frame. And every component can refer to the value its inputs have on that frame.
 - [ ] Create specs for some other models (e.g. figure 42)
 - [ ] Work on UI
+
+# Structural editing
+Your editor doesn't allow you to produce invalid syntax.
+
+Examples:
+- Scratch
+- [fructure](https://github.com/disconcision/fructure)
+- https://en.wikipedia.org/wiki/Structure_editor
 
 # Prior art
 - Stella

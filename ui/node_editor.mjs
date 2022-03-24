@@ -1,5 +1,5 @@
 import { div, input, h3, hr, br, p, text, h, assert } from "../utils.mjs"
-import { getInputId } from "../interpreter.mjs"
+import { getInputId, implicitSpec, cloneNode } from "../interpreter.mjs"
 
 function convertNodeToType(node, type, model) {
     const newNode = {
@@ -53,6 +53,42 @@ function makeStockAndBoundarySelector(field, node, model) {
     )
 }
 
+function makeRowEditorForInput(index, node, model, rerenderTable) {
+    const needsHistory = () => {
+        return typeof (node.inputs[index]) === 'object'
+    };
+
+    return h('tr', {}, [
+        h('td', {}, [
+            h('button', {
+                onclick: evt => {
+                    node.inputs.splice(index, 1)
+                    rerenderTable()
+                }
+            }, [text('🗑')])
+        ]),
+        h('td', {}, [
+            h('input', {
+                type: 'checkbox',
+                checked: needsHistory(),
+                oninput: evt => {
+                    const inputId = getInputId(node.inputs[index]);
+                    const newNeedsHistory = evt.target.checked;
+                    node.inputs[index] = newNeedsHistory ? [inputId] : inputId;
+                },
+            }),
+        ]),
+        h('td', {}, [
+            h('select', {
+                value: getInputId(node.inputs[index]),
+                oninput: evt => {
+                    node.inputs[index] = needsHistory() ? [evt.target.value] : evt.target.value;
+                },
+            }, model.getInputs().map(obj => h('option', { value: obj.id }, [text(obj.name)])))
+        ])
+    ]);
+}
+
 function makeField(element, field, node, model, state) {
     switch (field) {
         case 'name':
@@ -91,6 +127,8 @@ function makeField(element, field, node, model, state) {
                 text('logic: '),
                 h('textarea', {
                     value: node.logic,
+                    cols: 80,
+                    rows: 20,
                     oninput: evt => {
                         node.logic = eval(`(0,${evt.target.value})`)
                     }
@@ -108,7 +146,7 @@ function makeField(element, field, node, model, state) {
         case 'initialValue':
             return h('div', {}, [
                 text('Initial value:'),
-                h('input', { 
+                h('input', {
                     type: "number",
                     value: node.initialValue,
                     oninput: evt => {
@@ -118,27 +156,83 @@ function makeField(element, field, node, model, state) {
             ])
         case 'inputs':
             {
-                const currentInputs = {};
-                node.inputs.forEach(input => {
-                    currentInputs[getInputId(input)] = true;
-                });
-                const possibleInputs = (
-                    model.model
-                        .filter(obj => obj.type !== 'unit' && obj.type !== 'boundary')
-                        .sort((a, b) => (''+a).localeCompare(''+b))
-                );
-                return h('div', {}, 
-                    possibleInputs.map(obj =>
-                        h('div', {}, [
-                            h('input', {
-                                type: 'checkbox',
-                                checked: currentInputs[obj.id],
-                            }),
-                            text(' '),
-                            text(obj.name)
-                        ]
-                    )) 
+                const rerenderTable = () => table.parentElement.replaceChild(
+                       makeField(element, field, node, model, state),
+                       table
                 )
+                const table = h('table', { border: 1 }, [
+                    h('thead', {}, [
+                        h('tr', {}, [
+                            h('th', {}, [text('Delete')]),
+                            h('th', {}, [text('History?')]),
+                            h('th', {}, [text('Input')]),
+                        ]),
+                    ]),
+                    h('tbody', {}, (
+                        node.inputs
+                            .map((_, index) => makeRowEditorForInput(index, node, model, rerenderTable))
+                            .concat([
+                                h('tr', {}, [
+                                    h('td', { attr: {colspan: 3} }, [
+                                        h('button', {
+                                            onclick: evt => {
+                                                const defaultInput = model.getInputs()[0];
+                                                node.inputs.push(defaultInput.id);
+                                                rerenderTable();
+                                            }
+                                        }, [text('Add Input')])
+                                    ])
+                                ])
+                            ])
+                    ))
+                ]);
+
+                return table;
+            }
+        case 'value':
+            {
+                const defaultValue = type => {
+                    switch (type) {
+                        case "function":
+                            return t => 0
+                        case "number":
+                            return 0
+                    }
+                }
+                const makeParameterEditor = () => h('div', {}, [
+                    text('Value:'),
+                    typeof node.value === "function" 
+                    ? h('textarea', {
+                        value: node.value,
+                        oninput: evt => {
+                            node.value = eval(`(0,${evt.target.value})`)
+                        }
+                    }) 
+                    : h('input', {
+                        type: "number",
+                        value: node.value,
+                        oninput: evt => {
+                            node.value = parseFloat(evt.target.value)
+                        }
+                    })
+                ])
+                let parameterEditor = makeParameterEditor()
+                return h('div', {}, [
+                    h('div', {}, [
+                        text('Time-dependent?'),
+                        h('input', {
+                            type: "checkbox",
+                            checked: typeof node.value === "function",
+                            onclick: evt => {
+                                node.value = defaultValue(evt.target.checked ? "function" : "number")
+                                const newParameterEditor = makeParameterEditor()
+                                parameterEditor.parentElement.replaceChild(newParameterEditor, parameterEditor)
+                                parameterEditor = newParameterEditor
+                            }
+                        })
+                    ]),
+                    parameterEditor
+                ])
             }
         default:
             return h('p', { type: field }, [])
@@ -149,11 +243,11 @@ export function makeEditor(node, model) {
     const element = div([
         h('button', {
             onclick: evt => {
-                model.upsert(Object.assign({}, newNode))
+                model.upsert(cloneNode(newNode))
             }
         }, [text('Edit Node')])])
     const state = {}
-    let newNode = Object.assign({}, node);
+    let newNode = cloneNode(node);
     Object.keys(newNode)
         .forEach(k => {
             element.appendChild(makeField(element, k, newNode, model, state))

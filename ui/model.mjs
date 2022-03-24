@@ -21,6 +21,11 @@ export class Model {
 		}
 		return undefined
 	}
+	getInputs() {
+		return this.model.concat(implicitSpec)
+			.filter(obj => obj.type !== 'unit' && obj.type !== 'boundary')
+			.sort((a, b) => a.name.localeCompare(b.name));
+	}
 	upsert(node) {
 		const oldNode = this.lookup(node.id)
 		if (oldNode !== undefined) {
